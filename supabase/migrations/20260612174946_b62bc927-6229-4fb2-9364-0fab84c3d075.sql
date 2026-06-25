@@ -1,0 +1,1 @@
+CREATE POLICY clinica_select_own_owner ON public.clinica FOR SELECT TO authenticated USING (owner_email = (auth.jwt() ->> 'email'));
