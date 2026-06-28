@@ -6,7 +6,7 @@ services:
     networks:
       - wapainelnet
     command: >
-      sh -c "node scripts/init-db.mjs && node scripts/bootstrap-super-admin.mjs && node .output/server/index.mjs"
+      sh -c "node scripts/init-db.mjs && npx tsx scripts/bootstrap-super-admin.mjs && node .output/server/index.mjs"
     environment:
       NODE_ENV: production
       TZ: America/Sao_Paulo

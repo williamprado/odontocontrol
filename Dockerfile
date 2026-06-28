@@ -26,6 +26,7 @@ ENV TZ=America/Sao_Paulo
 # Copia o output do Nitro, dependências e scripts de inicialização
 COPY --from=builder /app/.output ./.output
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/src ./src
 COPY --from=builder /app/database ./database
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
@@ -40,5 +41,5 @@ USER node
 EXPOSE 3000
 
 # Executa a inicialização do super admin e inicia a aplicação
-CMD ["sh", "-c", "node scripts/init-db.mjs && node scripts/bootstrap-super-admin.mjs && node .output/server/index.mjs"]
+CMD ["sh", "-c", "node scripts/init-db.mjs && npx tsx scripts/bootstrap-super-admin.mjs && node .output/server/index.mjs"]
 
