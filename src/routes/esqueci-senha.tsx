@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +17,17 @@ function Page() {
     e.preventDefault();
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + "/reset-senha",
+      const { error } = await authClient.requestPasswordReset({
+        email,
+        redirectTo: "/reset-senha",
       });
       if (error) throw error;
-      toast.success("Email enviado, confira sua caixa de entrada.");
-    } catch (err: any) { toast.error(err.message); } finally { setBusy(false); }
+      toast.success("E-mail enviado, confira sua caixa de entrada.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao solicitar recuperação.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

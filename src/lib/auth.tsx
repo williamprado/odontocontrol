@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { syncAuthUser } from "@/lib/query.server";
+import { supabase } from "@/integrations/supabase/client";
 
 export type Membro = {
   id: string;
@@ -11,6 +11,7 @@ export type Membro = {
   email: string;
   role: string;
   ativo: boolean;
+  must_change_password: boolean;
 };
 
 export type Clinica = {
@@ -27,8 +28,8 @@ export type Clinica = {
 };
 
 type AuthCtx = {
-  session: Session | null;
-  user: User | null;
+  session: any | null;
+  user: any | null;
   membro: Membro | null;
   clinica: Clinica | null;
   clinicaId: string | null;
@@ -41,65 +42,113 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<any | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [membro, setMembro] = useState<Membro | null>(null);
   const [clinica, setClinica] = useState<Clinica | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const qc = useQueryClient();
 
+  const { data: sessionData, isPending } = authClient.useSession();
+
   const loadAll = async (uid: string | undefined, email: string | undefined) => {
     if (!uid) {
-      setMembro(null); setClinica(null); setIsSuperAdmin(false); return;
-    }
-    const [syncRes, { data: cfg }] = await Promise.all([
-      syncAuthUser(),
-      supabase.from("app_config").select("id,super_admin_emails").limit(1).maybeSingle(),
-    ]);
-    const m = syncRes && syncRes.success ? syncRes.member : null;
-    setMembro((m as Membro | null) ?? null);
-
-    let admins: string[] = (cfg?.super_admin_emails as string[]) ?? [];
-    // Auto-promove primeiro usuário a super admin
-    if (email && cfg?.id && (!admins || admins.length === 0)) {
-      const { data: upd } = await supabase
-        .from("app_config")
-        .update({ super_admin_emails: [email] })
-        .eq("id", cfg.id)
-        .select("super_admin_emails")
-        .maybeSingle();
-      admins = (upd?.super_admin_emails as string[]) ?? [email];
-    }
-    setIsSuperAdmin(!!(email && admins.includes(email)));
-    if (m?.clinica_id) {
-      const { data: c } = await supabase.from("clinica").select("*").eq("id", m.clinica_id).maybeSingle();
-      setClinica((c as any) ?? null);
-    } else {
+      setMembro(null);
       setClinica(null);
+      setIsSuperAdmin(false);
+      return;
+    }
+
+    try {
+      const [syncRes, configRes] = await Promise.all([
+        syncAuthUser(),
+        supabase.from("app_config").select("id,super_admin_emails").limit(1).maybeSingle(),
+      ]);
+
+      const m = syncRes && syncRes.success ? syncRes.member : null;
+      setMembro((m as Membro | null) ?? null);
+
+      let admins: string[] = (configRes?.data?.super_admin_emails as string[]) ?? [];
+      
+      // Auto-promote first user to super admin if list is empty
+      if (email && configRes?.data?.id && (!admins || admins.length === 0)) {
+        const { data: upd } = await supabase
+          .from("app_config")
+          .update({ super_admin_emails: [email] })
+          .eq("id", configRes.data.id)
+          .select("super_admin_emails")
+          .maybeSingle();
+        admins = (upd?.super_admin_emails as string[]) ?? [email];
+      }
+
+      setIsSuperAdmin(!!(email && admins.includes(email)));
+
+      if (m?.clinica_id) {
+        const { data: c } = await supabase.from("clinica").select("*").eq("id", m.clinica_id).maybeSingle();
+        setClinica((c as any) ?? null);
+      } else {
+        setClinica(null);
+      }
+    } catch (err) {
+      console.error("[AuthProvider loadAll error]", err);
     }
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setTimeout(() => { loadAll(s?.user?.id, s?.user?.email ?? undefined); qc.invalidateQueries(); }, 0);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      loadAll(data.session?.user?.id, data.session?.user?.email ?? undefined).finally(() => setLoading(false));
-    });
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (isPending) return;
 
-  const signOut = async () => { await supabase.auth.signOut(); };
-  const refresh = async () => { await loadAll(session?.user?.id, session?.user?.email ?? undefined); };
+    const u = sessionData?.user;
+    const s = sessionData?.session;
+
+    setSession(s ?? null);
+    setUser(u ?? null);
+
+    if (u) {
+      loadAll(u.id, u.email).finally(() => {
+        setLoading(false);
+        qc.invalidateQueries();
+      });
+    } else {
+      setMembro(null);
+      setClinica(null);
+      setIsSuperAdmin(false);
+      setLoading(false);
+    }
+  }, [sessionData, isPending]);
+
+  const signOut = async () => {
+    await authClient.signOut();
+    setSession(null);
+    setUser(null);
+    setMembro(null);
+    setClinica(null);
+    setIsSuperAdmin(false);
+    qc.invalidateQueries();
+  };
+
+  const refresh = async () => {
+    setLoading(true);
+    const { data } = await authClient.getSession({ fetchOptions: { cache: "no-store" } });
+    const u = data?.user;
+    await loadAll(u?.id, u?.email);
+    setLoading(false);
+  };
 
   return (
-    <Ctx.Provider value={{
-      session, user: session?.user ?? null, membro, clinica,
-      clinicaId: membro?.clinica_id ?? null, isSuperAdmin, loading, signOut, refresh,
-    }}>
+    <Ctx.Provider
+      value={{
+        session,
+        user,
+        membro,
+        clinica,
+        clinicaId: membro?.clinica_id ?? null,
+        isSuperAdmin,
+        loading,
+        signOut,
+        refresh,
+      }}
+    >
       {children}
     </Ctx.Provider>
   );

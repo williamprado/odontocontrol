@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,11 +29,17 @@ function EntrarPage() {
     const f = new FormData(e.currentTarget);
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: String(f.get("email")), password: String(f.get("password")),
+      const { error } = await authClient.signIn.email({
+        email: String(f.get("email")),
+        password: String(f.get("password")),
       });
       if (error) throw error;
-    } catch (err: any) { toast.error(err.message); } finally { setBusy(false); }
+      toast.success("Login realizado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "E-mail ou senha incorretos.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const signup = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -43,21 +49,18 @@ function EntrarPage() {
     const password = String(f.get("password"));
     setBusy(true);
     try {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await authClient.signUp.email({
         email,
         password,
-        options: {
-          emailRedirectTo: window.location.origin + "/app/Onboarding",
-          data: { nome: String(f.get("nome")) },
-        },
+        name: String(f.get("nome")),
       });
       if (signUpError) throw signUpError;
-      if (!signUpData.session) {
-        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-        if (loginError) throw loginError;
-      }
       toast.success("Conta criada! Bem-vindo.");
-    } catch (err: any) { toast.error(err.message); } finally { setBusy(false); }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao cadastrar.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

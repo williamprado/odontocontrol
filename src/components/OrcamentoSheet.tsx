@@ -171,7 +171,7 @@ export function OrcamentoSheet({
                       {items.map((it, idx) => (
                         <Draggable key={it.id} draggableId={it.id} index={idx}>
                           {(p, snap) => (
-                            <div ref={p.innerRef} {...p.draggableProps}
+                            <div ref={p.innerRef} {...p.draggableProps} style={p.draggableProps.style as any}
                               className={`flex gap-2 items-center bg-background border rounded px-2 py-1.5 ${snap.isDragging ? "shadow-lg" : ""}`}>
                               <span {...p.dragHandleProps} className="text-muted-foreground cursor-grab"><GripVertical className="size-4" /></span>
                               <Input value={it.nome} onChange={(e) => setItems(items.map((x) => x.id === it.id ? { ...x, nome: e.target.value } : x))} placeholder="Item" className="h-8 flex-1" />

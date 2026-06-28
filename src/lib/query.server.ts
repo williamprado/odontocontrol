@@ -16,3 +16,10 @@ export const syncAuthUser = createServerFn({ method: "POST" })
     return await syncAuthUserImpl();
   });
 
+export const markPasswordChanged = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { markPasswordChangedImpl } = await import("./db-query.server");
+    return await markPasswordChangedImpl();
+  });
+
+

@@ -5,7 +5,6 @@ import {
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -52,7 +51,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AuthSync />
         <Outlet />
         <Toaster richColors position="top-right" />
       </AuthProvider>
@@ -60,13 +58,3 @@ function RootComponent() {
   );
 }
 
-function AuthSync() {
-  const router = useRouter();
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      router.invalidate();
-    });
-    return () => subscription.unsubscribe();
-  }, [router]);
-  return null;
-}

@@ -45,6 +45,7 @@ import { Route as AppConfiguracoesRouteImport } from './routes/app/Configuracoes
 import { Route as AppAgendaRouteImport } from './routes/app/Agenda'
 import { Route as AppAIGrowthRouteImport } from './routes/app/AIGrowth'
 import { Route as AgendarSlugRouteImport } from './routes/agendar.$slug'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
@@ -226,6 +227,11 @@ const AgendarSlugRoute = AgendarSlugRouteImport.update({
   path: '/agendar/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/master/listaClinicas': typeof MasterListaClinicasRoute
   '/master/novaClinica': typeof MasterNovaClinicaRoute
   '/master/painel': typeof MasterPainelRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/master/listaClinicas': typeof MasterListaClinicasRoute
   '/master/novaClinica': typeof MasterNovaClinicaRoute
   '/master/painel': typeof MasterPainelRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/master/listaClinicas': typeof MasterListaClinicasRoute
   '/master/novaClinica': typeof MasterNovaClinicaRoute
   '/master/painel': typeof MasterPainelRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -381,6 +390,7 @@ export interface FileRouteTypes {
     | '/master/listaClinicas'
     | '/master/novaClinica'
     | '/master/painel'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/master/listaClinicas'
     | '/master/novaClinica'
     | '/master/painel'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/master/listaClinicas'
     | '/master/novaClinica'
     | '/master/painel'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -470,6 +482,7 @@ export interface RootRouteChildren {
   ResetSenhaRoute: typeof ResetSenhaRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   AgendarSlugRoute: typeof AgendarSlugRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -726,6 +739,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgendarSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -817,6 +837,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetSenhaRoute: ResetSenhaRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
   AgendarSlugRoute: AgendarSlugRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

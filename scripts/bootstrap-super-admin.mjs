@@ -1,5 +1,5 @@
 import pg from "pg";
-import { createClient } from "@supabase/supabase-js";
+import { auth } from "../src/lib/auth.server.ts";
 
 async function bootstrap() {
   const dbUrl = process.env.DATABASE_URL;
@@ -27,52 +27,38 @@ async function bootstrap() {
       process.exit(0);
     }
 
-    console.log("[bootstrap-admin] Nenhum Super Admin cadastrado na lista global. Iniciando bootstrap...");
+    console.log("[bootstrap-admin] Nenhum Super Admin cadastrado. Iniciando bootstrap 100% local...");
 
-    // 2) Tentar registrar o usuário no Supabase Auth caso SERVICE_ROLE esteja disponível
-    let supabaseUserId = null;
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (supabaseUrl && serviceRoleKey && serviceRoleKey !== "CHANGE_ME" && serviceRoleKey.length > 20) {
-      console.log("[bootstrap-admin] Configuração do Supabase Auth Admin detectada. Verificando cadastro...");
-      const supabase = createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      });
-
-      // Tenta listar usuários cadastrados para evitar duplicidade
-      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-      if (listError) {
-        console.error("[bootstrap-admin] Erro ao listar usuários do Supabase Auth:", listError.message);
+    // 2) Criar usuário no Better Auth via API Programática (criptografa a senha automaticamente)
+    let betterAuthUserId = null;
+    try {
+      console.log("[bootstrap-admin] Criando credenciais no Better Auth...");
+      
+      // Procura se o usuário já existe na tabela de usuários do Better Auth
+      const userRes = await pool.query('SELECT id FROM public."user" WHERE email = $1 LIMIT 1', [adminEmail]);
+      
+      if (userRes.rows.length > 0) {
+        betterAuthUserId = userRes.rows[0].id;
+        console.log("[bootstrap-admin] Usuário já existente no Better Auth.");
       } else {
-        const existingUser = users.find((u) => u.email?.toLowerCase().trim() === adminEmail);
-        if (existingUser) {
-          supabaseUserId = existingUser.id;
-          console.log("[bootstrap-admin] Usuário já existente no Supabase Auth.");
-        } else {
-          // Criar novo usuário
-          const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        const response = await auth.api.signUpEmail({
+          body: {
             email: adminEmail,
             password: adminPassword,
-            email_confirm: true,
-            user_metadata: { must_change_password: true },
-          });
-
-          if (createError) {
-            console.error("[bootstrap-admin] Erro ao criar usuário no Supabase Auth:", createError.message);
-          } else if (newUser?.user) {
-            supabaseUserId = newUser.user.id;
-            console.log("[bootstrap-admin] Usuário criado com sucesso no Supabase Auth.");
-          }
+            name: "Super Admin",
+          },
+        });
+        
+        if (response && response.user) {
+          betterAuthUserId = response.user.id;
+          console.log("[bootstrap-admin] Usuário cadastrado no Better Auth com sucesso.");
+        } else {
+          throw new Error("Resposta inválida da API de cadastro do Better Auth.");
         }
       }
-    } else {
-      console.log(
-        "[bootstrap-admin] Aviso: SUPABASE_SERVICE_ROLE_KEY não configurada. A criação da credencial no Supabase Auth deverá ser realizada manualmente."
-      );
+    } catch (authError) {
+      console.error("[bootstrap-admin] Erro ao criar conta no Better Auth:", authError.message);
+      throw authError;
     }
 
     // 3) Garantir que exista uma clínica padrão no banco local
@@ -90,7 +76,7 @@ async function bootstrap() {
       clinicaId = clinicaRes.rows[0].id;
     }
 
-    // 4) Garantir que o membro de equipe exista localmente
+    // 4) Garantir que o membro de equipe exista localmente vinculado ao Better Auth user ID
     const memberRes = await pool.query("SELECT id, user_id FROM public.membro_equipe WHERE LOWER(email) = $1 LIMIT 1", [
       adminEmail,
     ]);
@@ -100,17 +86,17 @@ async function bootstrap() {
         `INSERT INTO public.membro_equipe 
           (clinica_id, user_id, nome, email, role, ativo, must_change_password) 
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [clinicaId, supabaseUserId, "Super Admin", adminEmail, "owner", true, true]
+        [clinicaId, betterAuthUserId, "Super Admin", adminEmail, "owner", true, true]
       );
       console.log("[bootstrap-admin] Membro de equipe Super Admin criado no PostgreSQL.");
     } else {
       const existingMember = memberRes.rows[0];
-      if (!existingMember.user_id && supabaseUserId) {
+      if (existingMember.user_id !== betterAuthUserId) {
         await pool.query("UPDATE public.membro_equipe SET user_id = $1 WHERE id = $2", [
-          supabaseUserId,
+          betterAuthUserId,
           existingMember.id,
         ]);
-        console.log("[bootstrap-admin] user_id do membro local atualizado.");
+        console.log("[bootstrap-admin] user_id do membro local atualizado para Better Auth user ID.");
       } else {
         console.log("[bootstrap-admin] Membro local já configurado no PostgreSQL.");
       }
@@ -131,7 +117,7 @@ async function bootstrap() {
     await pool.end();
     process.exit(0);
   } catch (err) {
-    console.error("[bootstrap-admin] Falha crítica durante a execução do bootstrap:", err);
+    console.error("[bootstrap-admin] Falha crítica durante a execução do bootstrap:", err.message);
     await pool.end();
     process.exit(1);
   }

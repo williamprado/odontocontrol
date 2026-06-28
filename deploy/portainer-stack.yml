@@ -2,21 +2,27 @@ version: "3.8"
 
 services:
   odontocontrol_app:
-    image: williamwilmer10/odontocontrol:${APP_VERSION:-latest}
+    image: williamwilmer10/odontocontrol:latest
     networks:
       - wapainelnet
+    command: >
+      sh -c "node scripts/init-db.mjs && node scripts/bootstrap-super-admin.mjs && node .output/server/index.mjs"
     environment:
-      - NODE_ENV=production
-      - TZ=America/Sao_Paulo
-      - PORT=3000
-      - DATABASE_URL=postgresql://odontocontrol:${DB_PASSWORD:-CHANGE_ME}@odontocontrol_db:5432/odontocontrol
-      - SUPABASE_URL=${SUPABASE_URL:-https://example.supabase.co}
-      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-CHANGE_ME}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-CHANGE_ME}
-      - VITE_SUPABASE_URL=${SUPABASE_URL:-https://example.supabase.co}
-      - VITE_SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-CHANGE_ME}
-      - BOOTSTRAP_ADMIN_EMAIL=${BOOTSTRAP_ADMIN_EMAIL:-admin@admin.com}
-      - BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_ADMIN_PASSWORD:-@Admin.com}
+      NODE_ENV: production
+      TZ: America/Sao_Paulo
+      PORT: 3000
+
+      APP_URL: https://odontocontrol.wapainel.com.br
+      VITE_APP_URL: https://odontocontrol.wapainel.com.br
+
+      DATABASE_URL: postgresql://odontocontrol:TROQUE_ESSA_SENHA_FORTE@odontocontrol_db:5432/odontocontrol
+      DB_SSL: "false"
+
+      BETTER_AUTH_SECRET: TROQUE_ESSE_SECRET_FORTE
+      BETTER_AUTH_URL: https://odontocontrol.wapainel.com.br
+
+      BOOTSTRAP_ADMIN_EMAIL: admin@admin.com
+      BOOTSTRAP_ADMIN_PASSWORD: "@Admin.com"
 
     deploy:
       mode: replicated
@@ -26,14 +32,14 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
+          cpus: "0.75"
+          memory: 768M
         reservations:
           cpus: "0.10"
-          memory: 64M
+          memory: 128M
       labels:
         - traefik.enable=true
-        - traefik.http.routers.odontocontrol_app.rule=Host(`odontocontrol.seudominio.com.br`)
+        - traefik.http.routers.odontocontrol_app.rule=Host(`odontocontrol.wapainel.com.br`)
         - traefik.http.routers.odontocontrol_app.entrypoints=websecure
         - traefik.http.routers.odontocontrol_app.tls.certresolver=letsencryptresolver
         - traefik.http.routers.odontocontrol_app.service=odontocontrol_app
@@ -45,10 +51,10 @@ services:
     networks:
       - wapainelnet
     environment:
-      - POSTGRES_DB=odontocontrol
-      - POSTGRES_USER=odontocontrol
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-CHANGE_ME}
-      - TZ=America/Sao_Paulo
+      POSTGRES_DB: odontocontrol
+      POSTGRES_USER: odontocontrol
+      POSTGRES_PASSWORD: TROQUE_ESSA_SENHA_FORTE
+      TZ: America/Sao_Paulo
     volumes:
       - odontocontrol_db_data:/var/lib/postgresql/data
     deploy:
@@ -59,11 +65,11 @@ services:
           - node.role == manager
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
+          cpus: "0.75"
+          memory: 1024M
         reservations:
           cpus: "0.10"
-          memory: 128M
+          memory: 256M
 
 volumes:
   odontocontrol_db_data:

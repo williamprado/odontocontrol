@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { authClient } from "@/lib/auth-client";
+import { markPasswordChanged } from "@/lib/query.server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,11 +19,27 @@ function Page() {
     e.preventDefault();
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: pw });
+      const token = new URLSearchParams(window.location.search).get("token") || "";
+      if (!token) {
+        throw new Error("Token de recuperação de senha inválido ou ausente na URL.");
+      }
+
+      const { error } = await authClient.resetPassword({
+        newPassword: pw,
+        token,
+      });
       if (error) throw error;
-      toast.success("Senha atualizada!");
+
+      // Clear the must_change_password flag in the local members database
+      await markPasswordChanged();
+
+      toast.success("Senha atualizada com sucesso!");
       nav({ to: "/entrar" });
-    } catch (err: any) { toast.error(err.message); } finally { setBusy(false); }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao redefinir a senha.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

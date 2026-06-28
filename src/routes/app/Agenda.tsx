@@ -129,7 +129,7 @@ function Page() {
                       {items.map((c: any, idx: number) => (
                         <Draggable draggableId={c.id} index={idx} key={c.id}>
                           {(p, s) => (
-                            <div ref={p.innerRef} {...p.draggableProps}
+                            <div ref={p.innerRef} {...p.draggableProps} style={p.draggableProps.style as any}
                               onClick={() => { setEdit(c); setOpen(true); }}
                               className={`text-xs border rounded p-1.5 cursor-pointer hover:shadow ${statusColors[c.status]} ${s.isDragging ? "shadow-xl rotate-2" : ""}`}>
                               <div className="flex justify-between items-center">

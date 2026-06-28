@@ -1,7 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 function gerarSenha(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -11,13 +9,6 @@ function gerarSenha(): string {
   s += symbols[Math.floor(Math.random() * symbols.length)];
   s += Math.floor(Math.random() * 10).toString();
   return s.split("").sort(() => Math.random() - 0.5).join("");
-}
-
-async function assertSuperAdmin(supabase: any, email: string | undefined) {
-  if (!email) throw new Error("Não autenticado");
-  const { data: cfg } = await supabase.from("app_config").select("super_admin_emails").limit(1).maybeSingle();
-  const admins: string[] = (cfg?.super_admin_emails as string[]) ?? [];
-  if (!admins.includes(email)) throw new Error("Apenas Super Admin pode executar esta ação");
 }
 
 const novaClinicaSchema = z.object({
@@ -44,57 +35,73 @@ const novaClinicaSchema = z.object({
 });
 
 export const createClinicaWithOwner = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) => novaClinicaSchema.parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, claims } = context as any;
-    const callerEmail = claims?.email as string | undefined;
-    await assertSuperAdmin(supabase, callerEmail);
+  .handler(async ({ data }) => {
+    const { resolveRequestContext } = await import("./db-query.server");
+    const context = await resolveRequestContext();
+    if (!context.userId || !context.isSuperAdmin) {
+      throw new Error("Não autorizado: Apenas Super Admin pode criar clínicas.");
+    }
+
+    const { query } = await import("./db.server");
+    const { auth } = await import("./auth.server");
 
     const senha = gerarSenha();
 
-    // 1) cria usuário Auth via admin (auto-confirmado)
-    const { data: created, error: eUser } = await supabaseAdmin.auth.admin.createUser({
-      email: data.email_admin,
-      password: senha,
-      email_confirm: true,
-      user_metadata: { nome: data.nome_admin },
+    // 1) Criar usuário no Better Auth
+    console.log("[createClinicaWithOwner] Criando conta no Better Auth...");
+    const signUpResult = await auth.api.signUpEmail({
+      body: {
+        email: data.email_admin,
+        password: senha,
+        name: data.nome_admin,
+      },
     });
-    if (eUser) throw new Error(eUser.message);
-    const userId = created.user!.id;
 
-    // 2) cria clinica
-    const { data: c, error: eC } = await supabaseAdmin.from("clinica").insert({
-      nome: data.nome,
-      slug: data.slug || null,
-      cor_primaria: data.cor_principal || "#0EA5E9",
-      telefone: data.telefone || null,
-      cro_responsavel: data.cro_clinica || null,
-      endereco: data.endereco ? { ...data.endereco, whatsapp: data.whatsapp ?? null, especialidades: data.especialidades ?? [], dia_vencimento: data.dia_vencimento } : { whatsapp: data.whatsapp ?? null, especialidades: data.especialidades ?? [], dia_vencimento: data.dia_vencimento },
-      owner_nome: data.nome_admin,
-      owner_email: data.email_admin,
-      plano: data.plano,
-      valor_mensal: data.valor_mensal,
-      mrr: data.valor_mensal,
-      status: "ativo",
-      status_cobranca: "ativo",
-    }).select("*").single();
-    if (eC) {
-      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
-      throw new Error(eC.message);
+    if (!signUpResult || !signUpResult.user) {
+      throw new Error("Erro ao criar conta no Better Auth.");
     }
 
-    // 3) associa membro admin
-    const { error: eM } = await supabaseAdmin.from("membro_equipe").insert({
-      clinica_id: c.id,
-      user_id: userId,
-      nome: data.nome_admin,
-      email: data.email_admin,
-      role: "admin",
-      ativo: true,
-      must_change_password: true,
-    });
-    if (eM) throw new Error(eM.message);
+    const userId = signUpResult.user.id;
+
+    // 2) Criar clinica no banco de dados local
+    const endDoc = data.endereco 
+      ? { ...data.endereco, whatsapp: data.whatsapp ?? null, especialidades: data.especialidades ?? [], dia_vencimento: data.dia_vencimento }
+      : { whatsapp: data.whatsapp ?? null, especialidades: data.especialidades ?? [], dia_vencimento: data.dia_vencimento };
+
+    console.log("[createClinicaWithOwner] Inserindo clínica no PostgreSQL...");
+    const cRes = await query(
+      `INSERT INTO public.clinica 
+         (nome, slug, cor_primaria, telefone, cro_responsavel, endereco, owner_nome, owner_email, plano, valor_mensal, mrr, status, status_cobranca)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id, slug`,
+      [
+        data.nome,
+        data.slug || null,
+        data.cor_principal || "#0EA5E9",
+        data.telefone || null,
+        data.cro_clinica || null,
+        JSON.stringify(endDoc),
+        data.nome_admin,
+        data.email_admin,
+        data.plano,
+        data.valor_mensal,
+        data.valor_mensal,
+        "ativo",
+        "ativo",
+      ]
+    );
+
+    const c = cRes.rows[0];
+
+    // 3) Associar membro admin no banco de dados local
+    console.log("[createClinicaWithOwner] Inserindo membro admin no PostgreSQL...");
+    await query(
+      `INSERT INTO public.membro_equipe 
+         (clinica_id, user_id, nome, email, role, ativo, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [c.id, userId, data.nome_admin, data.email_admin, "admin", true, true]
+    );
 
     const linkPublico = `/agendar/${c.slug}`;
     return {
@@ -107,45 +114,51 @@ export const createClinicaWithOwner = createServerFn({ method: "POST" })
   });
 
 export const resetarSenhaAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ clinica_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, claims } = context as any;
-    await assertSuperAdmin(supabase, claims?.email);
+  .handler(async ({ data }) => {
+    const { resolveRequestContext } = await import("./db-query.server");
+    const context = await resolveRequestContext();
+    if (!context.userId || !context.isSuperAdmin) {
+      throw new Error("Não autorizado: Apenas Super Admin pode resetar senhas.");
+    }
 
-    const { data: membro } = await supabaseAdmin
-      .from("membro_equipe")
-      .select("user_id, email")
-      .eq("clinica_id", data.clinica_id)
-      .in("role", ["owner", "admin"])
-      .eq("ativo", true)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    const { query } = await import("./db.server");
+    const { auth } = await import("./auth.server");
 
-    if (!membro?.user_id) throw new Error("Admin desta clínica não encontrado");
+    // Buscar o admin ativo desta clinica
+    const membroRes = await query(
+      `SELECT user_id, email FROM public.membro_equipe 
+       WHERE clinica_id = $1 AND role IN ('owner', 'admin') AND ativo = true 
+       ORDER BY created_at ASC LIMIT 1`,
+      [data.clinica_id]
+    );
+
+    const membro = membroRes.rows[0];
+    if (!membro || !membro.user_id) {
+      throw new Error("Administrador ativo desta clínica não foi encontrado no banco local.");
+    }
 
     const novaSenha = gerarSenha();
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(membro.user_id, { password: novaSenha });
-    if (error) throw new Error(error.message);
 
-    await supabaseAdmin.from("membro_equipe").update({ must_change_password: true }).eq("user_id", membro.user_id);
+    // Redefinir senha via Better Auth API
+    console.log("[resetarSenhaAdmin] Atualizando senha no Better Auth...");
+    await auth.api.setUserPassword({
+      body: {
+        userId: membro.user_id,
+        newPassword: novaSenha,
+      },
+    });
 
-    return { email: membro.email as string, nova_senha: novaSenha };
+    // Marcar como must_change_password no membro local
+    await query(
+      "UPDATE public.membro_equipe SET must_change_password = true WHERE user_id = $1",
+      [membro.user_id]
+    );
+
+    return { email: membro.email, nova_senha: novaSenha };
   });
 
-// =====================================================================
-// TODO: aluno que clonar deve conectar sua propria conta Resend aqui.
-// Esta funcao eh um STUB - apenas registra no console e retorna sucesso.
-// Para ativar emails de verdade:
-//   1) Criar conta gratuita em https://resend.com
-//   2) Verificar dominio em Resend > Domains
-//   3) Copiar a API key
-//   4) Adicionar RESEND_API_KEY como secret no Lovable Cloud
-//   5) Descomentar o bloco fetch abaixo
-// =====================================================================
 export const enviarEmail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
       to: z.string().email(),
@@ -156,15 +169,5 @@ export const enviarEmail = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     console.log("[enviarEmail STUB]", JSON.stringify(data, null, 2));
-    // const apiKey = process.env.RESEND_API_KEY;
-    // if (apiKey) {
-    //   const res = await fetch("https://api.resend.com/emails", {
-    //     method: "POST",
-    //     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    //     body: JSON.stringify({ from: "OdontoControl <noreply@seudominio.com>", to: data.to, subject: data.subject, html: renderTemplate(data.template, data.data) }),
-    //   });
-    //   if (!res.ok) throw new Error(await res.text());
-    //   return { success: true, stub: false };
-    // }
     return { success: true, stub: true };
   });

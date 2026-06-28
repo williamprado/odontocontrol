@@ -123,7 +123,7 @@ function Page() {
                   <div className="text-sm font-medium text-foreground mt-3">{c.impacto}</div>
                   {c.preview.length > 0 && (
                     <ul className="mt-3 space-y-1">
-                      {c.preview.map((p, j) => (
+                      {c.preview.map((p: any, j: number) => (
                         <li key={j} className="text-xs text-muted-foreground truncate">• {p}</li>
                       ))}
                     </ul>

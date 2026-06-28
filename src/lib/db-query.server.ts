@@ -1,8 +1,8 @@
 import { getRequest } from "@tanstack/react-start/server";
-import { createClient } from "@supabase/supabase-js";
 import { query } from "./db.server";
 import { DB_TABLES } from "./db-whitelist.server";
 import type { QueryAST } from "./query.types";
+import { auth } from "./auth.server";
 
 // Helper to escape identifiers safely and validate them
 function escapeIdentifier(id: string): string {
@@ -15,35 +15,19 @@ function escapeIdentifier(id: string): string {
 // Resolver for context, tenant, and Super Admin authorization
 export async function resolveRequestContext() {
   const request = getRequest();
-  const authHeader = request?.headers?.get("authorization");
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!request) {
     return { userId: null, email: null, clinicaId: null, isSuperAdmin: false, isAnonymous: true };
   }
 
-  const token = authHeader.replace("Bearer ", "");
-  if (!token || token.split(".").length !== 3) {
+  // 1) Verify session using Better Auth
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session || !session.user || !session.user.id) {
     return { userId: null, email: null, clinicaId: null, isSuperAdmin: false, isAnonymous: true };
   }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const userId = session.user.id;
+  const email = session.user.email;
 
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error("Missing Supabase configuration environment variables.");
-  }
-
-  const tempSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: false },
-  });
-
-  const { data, error } = await tempSupabase.auth.getClaims(token);
-  if (error || !data?.claims || !data.claims.sub) {
-    return { userId: null, email: null, clinicaId: null, isSuperAdmin: false, isAnonymous: true };
-  }
-
-  const userId = data.claims.sub;
-  const email = data.claims.email;
 
   // 1) Verify if Super Admin
   let isSuperAdmin = false;
@@ -304,4 +288,19 @@ export async function syncAuthUserImpl() {
     return { success: false, error: err?.message || "Erro de sincronização de login." };
   }
 }
+
+export async function markPasswordChangedImpl() {
+  try {
+    const context = await resolveRequestContext();
+    if (!context.userId) {
+      return { success: false, error: "Não autenticado." };
+    }
+    await query("UPDATE public.membro_equipe SET must_change_password = false WHERE user_id = $1", [context.userId]);
+    return { success: true };
+  } catch (err: any) {
+    console.error("[markPasswordChangedImpl Error]", err);
+    return { success: false, error: err?.message || "Erro ao atualizar status da senha." };
+  }
+}
+
 

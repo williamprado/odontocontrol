@@ -10,14 +10,13 @@ Antes do deploy, prepare os valores das seguintes variáveis no ambiente ou no p
 
 | Variável | Descrição | Exemplo / Padrão |
 | :--- | :--- | :--- |
-| `APP_VERSION` | Tag/Versão da imagem Docker do app | `v0.1.0` (padrão: `latest`) |
-| `DB_PASSWORD` | Senha do banco PostgreSQL com pgvector | *Definir uma senha forte* |
-| `SUPABASE_URL` | Endpoint da API do Supabase (Auth/Transição) | `https://example.supabase.co` |
-| `SUPABASE_PUBLISHABLE_KEY` | Chave anônima pública do Supabase | *Obtida no painel do Supabase* |
-| `SUPABASE_SERVICE_ROLE_KEY` | Chave privada administrativa do Supabase | *Usada apenas no backend do app* |
+| `APP_URL` | URL de acesso público do sistema | `https://odontocontrol.wapainel.com.br` |
+| `BETTER_AUTH_SECRET` | Chave secreta de encriptação de sessões. Gere com `openssl rand -base64 48` | *Gere um secret forte* |
+| `BETTER_AUTH_URL` | URL base utilizada pelo Better Auth | `https://odontocontrol.wapainel.com.br` |
+| `DATABASE_URL` | Conexão PostgreSQL (Ex: `postgresql://user:pass@db_host:5432/db`) | `postgresql://odontocontrol:senha@odontocontrol_db:5432/odontocontrol` |
+| `DB_SSL` | Habilita SSL para conexão de banco (`true` / `false`) | `false` |
 | `BOOTSTRAP_ADMIN_EMAIL` | E-mail para criação do Super Admin inicial | `admin@admin.com` |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Senha temporária do Super Admin inicial | `@Admin.com` |
-
 
 ---
 
@@ -79,7 +78,7 @@ docker network create --driver=overlay wapainelnet
 3. Defina o nome como `odontocontrol`.
 4. Em **Build method**, escolha **Web editor** ou faça upload do arquivo `deploy/portainer-stack.yml`.
 5. Preencha as variáveis de ambiente na seção **Environment variables** (conforme a tabela do item 1).
-6. Ajuste a URL do domínio nas labels do Traefik no YAML (ex: substitua `odontocontrol.seudominio.com.br` pelo seu domínio real).
+6. Ajuste a URL do domínio nas labels do Traefik no YAML (ex: substitua `odontocontrol.wapainel.com.br` pelo seu domínio real).
 7. Clique em **Deploy the stack**.
 
 ---
@@ -101,24 +100,20 @@ graph TD
 ## 5. Checklist Pós-Deploy
 
 * [ ] **Acesso HTTP/HTTPS:** Abra o domínio configurado no navegador e certifique-se de que a aplicação carrega corretamente (sem erros 502/504).
-* [ ] **Autenticação:** Tente fazer login em um ambiente de homologação para verificar se o app consegue se conectar ao Supabase Auth.
-* [ ] **Conexão com o Banco Postgres:** Verifique os logs do container do app no Portainer para certificar-se de que ele conectou corretamente ao PostgreSQL (caso a integração Postgres esteja ativada).
+* [ ] **Autenticação Local:** Tente fazer login usando as credenciais do bootstrap administrativo.
+* [ ] **Conexão com o Banco Postgres:** Verifique os logs do container do app no Portainer para certificar-se de que ele conectou e executou as migrações automáticas sem falhas.
 * [ ] **Políticas de Backup:** Certifique-se de configurar rotinas de backup para o volume persistente do banco Postgres no host do Swarm.
 
 ---
 
 ## 6. Inicialização e Bootstrap do Super Admin
 
-Para permitir o primeiro acesso do administrador ao painel do OdontoControl, a aplicação possui um script de bootstrap que roda automaticamente na inicialização do container.
+Para permitir o funcionamento autônomo e imediato do OdontoControl, a aplicação possui scripts de inicialização que rodam na inicialização do container.
 
-### Funcionamento do Bootstrap:
-1. O container inicia e executa o script `scripts/bootstrap-super-admin.mjs`.
-2. Se a variável `SUPABASE_SERVICE_ROLE_KEY` estiver configurada, o script se conectará ao Supabase Auth e criará automaticamente a conta `admin@admin.com` com a senha `@Admin.com` (ou os valores definidos nas variáveis `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`).
-3. Se a `SUPABASE_SERVICE_ROLE_KEY` **não** estiver presente, o script criará apenas as tabelas locais (Clínica padrão de bootstrap e perfil em `membro_equipe`). O usuário `admin@admin.com` precisará ser criado manualmente no console do Supabase Auth.
-4. O e-mail configurado será associado ao array de super-administradores na tabela `app_config.super_admin_emails`.
-5. No primeiro acesso válido do usuário, a Server Function do aplicativo (`syncAuthUser`) validará o JWT do Supabase, encontrará o e-mail cadastrado e vinculará de forma segura o `user_id` correspondente no banco local do PostgreSQL.
+### Funcionamento do Startup:
+1. **init-db.mjs:** O container executa o script `scripts/init-db.mjs`. Ele lê `DATABASE_URL`, conecta ao PostgreSQL, cria a extensão `vector`, a extensão `pgcrypto` e executa o schema idempotente de criação de tabelas (`init_postgres.sql`), incluindo as tabelas do Better Auth (`"user"`, `"session"`, `"account"`, `"verification"`).
+2. **bootstrap-super-admin.mjs:** O container executa o script `scripts/bootstrap-super-admin.mjs`. Ele lê as variáveis `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`, verifica se o Super Admin já existe no banco e, caso não exista, realiza o cadastro programático da conta no Better Auth e insere os registros locais na tabela de membros (`membro_equipe`) e configurações do aplicativo (`app_config`), configurando a flag `must_change_password = true` para exigir a troca de senha imediata.
 
 > [!IMPORTANT]
 > **RECOMENDAÇÃO DE SEGURANÇA:**
-> Após o primeiro acesso ao sistema, remova as variáveis `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do painel do Portainer ou altere a senha diretamente nas configurações do usuário.
-
+> Após o primeiro acesso ao sistema e a alteração da senha padrão, remova as variáveis `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do painel do Portainer para garantir o isolamento da conta.

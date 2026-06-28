@@ -395,3 +395,51 @@ CREATE TRIGGER trg_fin_updated BEFORE UPDATE ON public.financeiro
 --   created_at timestamptz DEFAULT now()
 -- );
 -- CREATE INDEX ON public.documento_clinico_vector USING hnsw (embedding vector_cosine_ops);
+
+-- =========================================================
+-- BETTER AUTH TABLES
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public."user" (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  email text NOT NULL UNIQUE,
+  "emailVerified" boolean NOT NULL,
+  image text,
+  "createdAt" timestamp with time zone NOT NULL,
+  "updatedAt" timestamp with time zone NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public."session" (
+  id text PRIMARY KEY,
+  "expiresAt" timestamp with time zone NOT NULL,
+  token text NOT NULL UNIQUE,
+  "createdAt" timestamp with time zone NOT NULL,
+  "updatedAt" timestamp with time zone NOT NULL,
+  "ipAddress" text,
+  "userAgent" text,
+  "userId" text NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public."account" (
+  id text PRIMARY KEY,
+  "accountId" text NOT NULL,
+  "providerId" text NOT NULL,
+  "userId" text NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,
+  "accessToken" text,
+  "refreshToken" text,
+  "idToken" text,
+  "expiresAt" timestamp with time zone,
+  password text,
+  "createdAt" timestamp with time zone NOT NULL,
+  "updatedAt" timestamp with time zone NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public."verification" (
+  id text PRIMARY KEY,
+  identifier text NOT NULL,
+  value text NOT NULL,
+  "expiresAt" timestamp with time zone NOT NULL,
+  "createdAt" timestamp with time zone,
+  "updatedAt" timestamp with time zone
+);
+

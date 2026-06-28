@@ -19,8 +19,8 @@ A aplicação foi construída sobre uma arquitetura moderna e full-stack de alto
 - **Core / Framework:** React 19, TypeScript e TanStack Start (construído sobre Vinxi/Nitro).
 - **Styling:** Tailwind CSS v4 para estilização nativa e moderna.
 - **Roteamento:** TanStack Router (roteamento baseado em arquivos).
-- **Autenticação:** Supabase Auth (para gerenciamento de sessões, login e cadastro).
-- **Banco de Dados (Produção/Destino):** PostgreSQL com a extensão `pgvector` provisionado via contêineres Docker locais e orquestrado no Docker Swarm.
+- **Autenticação:** Better Auth (autenticação local persistida em tabelas dedicadas do Postgres).
+- **Banco de Dados:** PostgreSQL com a extensão `pgvector` provisionado via contêineres Docker locais e orquestrado no Docker Swarm. Supabase foi 100% removido.
 
 ---
 
@@ -42,13 +42,13 @@ As rotas estão mapeadas sob `src/routes/` seguindo a convenção de arquivo do 
 ---
 
 ## 4. Status da Migração (Supabase → PostgreSQL/pgvector)
-- **Fase 1 (Pronta):** Estrutura de conteinerização do banco local (`pgvector/pgvector:pg16`) e Dockerfile multi-stage configurado para o servidor Nitro Node.
-- **Fase 2 (Pronta):** Implementação de um **Proxy Adapter progressivo** em `src/integrations/supabase/client.ts` que intercepta consultas `.from(table)` e as redireciona para a Server Function segura `executeDbQuery`. Os acessos ao banco PostgreSQL local passam por validação rigorosa de whitelist (tabelas e colunas permitidas) e isolamento implícito de tenant por clínica. Supabase Auth foi mantido para autenticação de sessões.
-- **Fase 2.1 (Pronta):** Provisionamento de configurações de Docker Compose local e seed de dados fictícios em banco de desenvolvimento para validações locais de build.
+- **Fase 1:** Estrutura de conteinerização do banco local (`pgvector/pgvector:pg16`) e Dockerfile multi-stage configurado para o servidor Nitro Node.
+- **Fase 2:** Implementação de um **Proxy Adapter progressivo** em `src/integrations/supabase/client.ts` que intercepta consultas `.from(table)` e as redireciona para a Server Function segura `executeDbQuery`.
+- **Fase 2.1:** Configurações de Docker Compose local e seed de dados fictícios em banco de desenvolvimento para validações locais de build.
+- **Fase 2.4 (Concluída):** Remoção completa da dependência do Supabase Auth no backend e frontend. A autenticação foi migrada integralmente para o **Better Auth** rodando localmente no PostgreSQL local. Implementados scripts de inicialização automática do banco (`init-db.mjs`) e bootstrap do Super Admin (`bootstrap-super-admin.mjs`) 100% locais que executam no startup do container.
 
 ---
 
 ## 5. Próximos Passos
-1. Integração com GitHub Actions para compilação automatizada da imagem Docker no Docker Hub.
-2. Migração total das chamadas do cliente que necessitem de recursos não cobertos pelo proxy adapter para chamadas exclusivas de Server Functions.
-3. Deploy da aplicação em Docker Swarm via Portainer integrando o banco local Postgres e migrando os dados de produção.
+1. Realizar deploy no Portainer (Docker Swarm) do cluster completo de produção (App + Banco Local PostgreSQL).
+2. Monitorar os logs do banco de dados e do Better Auth em produção durante o fluxo de migração dos clientes reais.

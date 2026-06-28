@@ -1,21 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
 import { executeDbQuery } from "@/lib/query.server";
 import type { ASTFilter } from "@/lib/query.types";
 
-// 1) Initialize the real Supabase client for auth/storage delegation
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://example.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "CHANGE_ME";
-
-const realSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: typeof window !== "undefined" ? localStorage : undefined,
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
-
-// 2) Define the Mock Builder mimicking postgrest interface
 class LocalPostgresQueryBuilder {
   private table: string;
   private action: "select" | "insert" | "update" | "delete" = "select";
@@ -101,14 +86,12 @@ class LocalPostgresQueryBuilder {
     return this;
   }
 
-  // Support thenable behavior (allowing `await builder`)
   then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
     return this.execute().then(onfulfilled, onrejected);
   }
 
   private async execute() {
     try {
-      // Execute database query through Server Function
       const res = await executeDbQuery({
         data: {
           action: this.action,
@@ -119,7 +102,7 @@ class LocalPostgresQueryBuilder {
           orderOpts: this.orderOpts,
           limitCount: this.limitCount,
           values: this.payload,
-        }
+        },
       });
 
       if (res.error) {
@@ -159,8 +142,6 @@ class LocalPostgresQueryBuilder {
   }
 }
 
-// 3) Export the compatible client object
 export const supabase = {
-  auth: realSupabase.auth,
   from: (table: string) => new LocalPostgresQueryBuilder(table),
 };

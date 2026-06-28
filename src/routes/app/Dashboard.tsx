@@ -57,7 +57,7 @@ function Page() {
   const consSemana = consultas.filter((c: any) => c.data >= weekStart && c.data <= weekEnd);
   const consMes = consultas.filter((c: any) => c.data >= monthStart && c.data <= monthEnd);
   const finMes = (data?.fin ?? []).filter((f: any) => f.data >= monthStart && f.data <= monthEnd);
-  const receitaMes = finMes.filter((f: any) => f.tipo === "receita").reduce((a, x: any) => a + Number(x.valor), 0);
+  const receitaMes = finMes.filter((f: any) => f.tipo === "receita").reduce((a: number, x: any) => a + Number(x.valor), 0);
   const consConcluidasMes = consMes.filter((c: any) => c.status === "concluida" || c.status === "realizada");
   const ticketMedio = consConcluidasMes.length ? receitaMes / consConcluidasMes.length : 0;
   const consTotal = consMes.length || 1;
