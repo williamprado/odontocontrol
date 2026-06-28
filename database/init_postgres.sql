@@ -406,7 +406,11 @@ CREATE TABLE IF NOT EXISTS public."user" (
   "emailVerified" boolean NOT NULL,
   image text,
   "createdAt" timestamp with time zone NOT NULL,
-  "updatedAt" timestamp with time zone NOT NULL
+  "updatedAt" timestamp with time zone NOT NULL,
+  role text,
+  banned boolean,
+  "banReason" text,
+  "banExpires" timestamp with time zone
 );
 
 CREATE TABLE IF NOT EXISTS public."session" (
