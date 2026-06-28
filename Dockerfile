@@ -5,9 +5,8 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Instala dependências antes de copiar o código para aproveitar o cache de camadas do Docker
 COPY package*.json ./
-RUN npm ci
+RUN npm install -g npm@11.8.0 && npm ci
 
 # Copia o restante dos arquivos do projeto
 COPY . .
