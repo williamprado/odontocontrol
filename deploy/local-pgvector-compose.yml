@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  odontocontrol_pgvector_local:
+    image: pgvector/pgvector:pg16
+    container_name: odontocontrol_pgvector_local
+    environment:
+      POSTGRES_DB: odontocontrol
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: odontocontrol_local_password
+      TZ: America/Sao_Paulo
+    ports:
+      - "54329:5432"
+    volumes:
+      - odontocontrol_pgvector_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d odontocontrol"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  odontocontrol_pgvector_local_data:
