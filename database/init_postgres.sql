@@ -23,51 +23,51 @@ $$;
 -- ============ ENUMS ============
 DO $$ BEGIN
   CREATE TYPE plano_enum AS ENUM ('starter', 'pro', 'premium');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE status_clinica_enum AS ENUM ('ativo', 'trial', 'bloqueado');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE role_enum AS ENUM ('owner', 'admin', 'dentista', 'recepcionista', 'auxiliar', 'financeiro', 'demo');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE especialidade_enum AS ENUM ('Clinico_geral', 'Ortodontia', 'Implantodontia', 'Endodontia', 'Periodontia', 'Estetica', 'Cirurgia', 'Outro');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE tipo_consulta_enum AS ENUM ('avaliacao', 'consulta', 'retorno', 'procedimento', 'urgencia');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE status_consulta_enum AS ENUM ('agendada', 'confirmada', 'em_atendimento', 'concluida', 'cancelada', 'faltou');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE status_tratamento_enum AS ENUM ('planejado', 'em_andamento', 'concluido', 'cancelado');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE status_orcamento_enum AS ENUM ('pendente', 'aprovado', 'recusado', 'em_negociacao');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE tipo_historico_enum AS ENUM ('anamnese', 'exame', 'procedimento', 'observacao', 'receita');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE tipo_financeiro_enum AS ENUM ('receita', 'despesa');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE status_financeiro_enum AS ENUM ('pendente', 'pago', 'atrasado', 'cancelado');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 DO $$ BEGIN
   CREATE TYPE status_cobranca_enum AS ENUM ('ativo', 'inadimplente', 'suspenso');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL; END; $$;
 
 -- ============ TIMESTAMP TRIGGER ============
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -132,7 +132,8 @@ BEGIN
   END LOOP;
   NEW.slug := candidate;
   RETURN NEW;
-END $$;
+END;
+$$;
 
 DROP TRIGGER IF EXISTS trg_clinica_slug ON public.clinica;
 CREATE TRIGGER trg_clinica_slug BEFORE INSERT ON public.clinica
@@ -277,6 +278,8 @@ DECLARE
   novo_inicio TIMESTAMP;
   novo_fim TIMESTAMP;
   conflito_count INT;
+BEGIN
+  RETURN NEW;
 END;
 $$; -- Stub for conflict compilation compatibility (can be implemented inside server)
 
