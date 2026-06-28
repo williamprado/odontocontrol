@@ -18,7 +18,9 @@ OdontoControl é um sistema completo de gestão clínica e CRM projetado para co
 ## 2. Estrutura de Pastas Principal
 
 ```text
-├── .lovable/                 # Planos e metadados de geração do Lovable
+├── .github/
+│   └── workflows/
+│       └── build-and-push-docker.yml # Workflow CI/CD GitHub Actions
 ├── deploy/
 │   └── portainer-stack.yml   # Stack Docker Swarm para o Portainer (App + Postgres pgvector)
 ├── docker/
@@ -87,11 +89,22 @@ npm run preview
 
 ## 5. Docker & Deploy no Docker Swarm
 
-O projeto está pronto para ser empacotado como um container Docker e publicado no Swarm.
+O projeto está pronto para ser empacotado como um container Docker e publicado no Swarm de duas maneiras:
 
-### Compilação da Imagem Docker
+### Build Automatizado (CI/CD GitHub Actions)
+Quando novos commits são enviados para a branch `main`, o GitHub Actions compila e publica a imagem Docker no Docker Hub:
+* **Imagem:** `williamwilmer10/odontocontrol`
+* **Tags:** `v0.1.<run_number>` e `latest`
+* **Secrets necessários:** `DOCKER_USERNAME` e `DOCKER_PASSWORD` (Access Token) configurados nas configurações de segredos do repositório.
+
+### Build Manual Local
+Para compilar localmente:
 ```bash
 docker build -t williamwilmer10/odontocontrol:latest .
+```
+Ou utilize o script de apoio adaptado (caso o Docker esteja instalado localmente):
+```bash
+bash scripts/build_and_push.sh
 ```
 
 ### Deploy no Swarm

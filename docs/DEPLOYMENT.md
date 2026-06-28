@@ -20,22 +20,41 @@ Antes do deploy, prepare os valores das seguintes variáveis no ambiente ou no p
 
 ## 2. Compilação e Envio da Imagem Docker
 
+A publicação da imagem Docker no Docker Hub pode ser feita de duas formas:
+
+### 2.1 Build Automatizado via GitHub Actions (CI/CD)
+O repositório está integrado a uma esteira de CI/CD em `.github/workflows/build-and-push-docker.yml`.
+Toda vez que há um push na branch `main`, a imagem é compilada e publicada automaticamente no Docker Hub:
+- **Imagem de destino:** `williamwilmer10/odontocontrol`
+- **Tags automáticas:** `v0.1.${{ github.run_number }}` e `latest`
+
+**Segredos necessários no GitHub (Secrets and variables -> Actions):**
+- `DOCKER_USERNAME`: `williamwilmer10`
+- `DOCKER_PASSWORD`: *Docker Hub Personal Access Token (PAT)*
+
+---
+
+### 2.2 Build Manual
 Certifique-se de executar os comandos a partir da raiz do repositório.
 
-### Passo 1: Build local da imagem
+#### Método 1: Usando o script de apoio
+Você pode usar o script automatizado local para calcular a versão incremental consultando o Docker Hub, compilar e enviar a imagem:
+```bash
+bash scripts/build_and_push.sh
+```
+
+#### Método 2: Comandos manuais clássicos
 Substitua `v0.1.0` pela versão correspondente:
 ```bash
+# Build local da imagem
 docker build -t williamwilmer10/odontocontrol:v0.1.0 .
-```
 
-### Passo 2: Login no Docker Hub (ou registro privado)
-```bash
-docker login
-```
+# Login no Docker Hub
+docker login -u williamwilmer10
 
-### Passo 3: Envio da imagem (Push)
-```bash
+# Envio da imagem (Push)
 docker push williamwilmer10/odontocontrol:v0.1.0
+docker push williamwilmer10/odontocontrol:latest
 ```
 
 ---

@@ -64,6 +64,8 @@ docker compose -f deploy/portainer-stack.yml config
 
 ## 5. Regras de Deploy e Infraestrutura
 * **Não faça push** de tags ou commits diretamente para branches de produção sem autorização expressa do usuário.
-* **Não envie** imagens Docker para repositórios públicos sem autorização.
-* **Não altere** ou acione builds automáticos em ambientes de staging ou produção.
+* A imagem Docker pública autorizada do projeto é `williamwilmer10/odontocontrol`.
+* O workflow de CI/CD em `.github/workflows/build-and-push-docker.yml` compila e publica a imagem no Docker Hub automaticamente no push para `main`.
+* O script `scripts/build_and_push.sh` pode ser usado para compilar e publicar novas tags de forma incremental localmente.
+* **Não altere** ou acione builds manuais em ambientes de staging ou produção direta sem autorização.
 * A migração para PostgreSQL local com pgvector deve seguir o plano detalhado no [MIGRATION_SUPABASE_TO_PGVECTOR.md](file:///i:/odontocontrol/docs/MIGRATION_SUPABASE_TO_PGVECTOR.md), garantindo que as chamadas client-side do Supabase sejam reestruturadas em Server Functions antes de remover o SDK do Supabase.
