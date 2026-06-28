@@ -9,3 +9,10 @@ export const executeDbQuery = createServerFn({ method: "POST" })
     const { executeDbQueryImpl } = await import("./db-query.server");
     return await executeDbQueryImpl(ast);
   });
+
+export const syncAuthUser = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { syncAuthUserImpl } = await import("./db-query.server");
+    return await syncAuthUserImpl();
+  });
+

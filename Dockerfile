@@ -24,8 +24,11 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV TZ=America/Sao_Paulo
 
-# Copia apenas o output de produção gerado pelo Nitro
+# Copia o output do Nitro, dependências e scripts de inicialização
 COPY --from=builder /app/.output ./.output
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 
 # Garante permissões adequadas para o usuário não-root 'node'
 RUN chown -R node:node /app
@@ -36,5 +39,6 @@ USER node
 # Expõe a porta interna configurada do servidor
 EXPOSE 3000
 
-# Executa a aplicação diretamente pelo entrypoint do Nitro
-CMD ["node", ".output/server/index.mjs"]
+# Executa a inicialização do super admin e inicia a aplicação
+CMD ["sh", "-c", "node scripts/bootstrap-super-admin.mjs && node .output/server/index.mjs"]
+

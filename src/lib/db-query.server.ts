@@ -263,3 +263,45 @@ export async function executeDbQueryImpl(ast: QueryAST) {
     };
   }
 }
+
+export async function syncAuthUserImpl() {
+  try {
+    const context = await resolveRequestContext();
+    if (context.isAnonymous || !context.userId || !context.email) {
+      return { success: false, error: "Não autenticado ou sessão inválida." };
+    }
+
+    const email = context.email.toLowerCase().trim();
+
+    // 1) Procura o membro_equipe correspondente ao e-mail autenticado
+    const findRes = await query(
+      "SELECT id, clinica_id, user_id, nome, email, role, ativo, must_change_password FROM membro_equipe WHERE LOWER(email) = $1 LIMIT 1",
+      [email]
+    );
+
+    if (findRes.rows.length === 0) {
+      return { success: false, error: "Cadastro do membro não localizado." };
+    }
+
+    const member = findRes.rows[0];
+
+    // 2) Sincroniza o user_id se estiver em branco
+    if (!member.user_id) {
+      await query(
+        "UPDATE membro_equipe SET user_id = $1, updated_at = now() WHERE id = $2",
+        [context.userId, member.id]
+      );
+      member.user_id = context.userId;
+      console.log(`[syncAuthUserImpl] user_id vinculado com sucesso para o email ${email}`);
+    } else if (member.user_id !== context.userId) {
+      // Conflito de IDs
+      return { success: false, error: "Conflito: Este e-mail já está associado a outra credencial." };
+    }
+
+    return { success: true, member };
+  } catch (err: any) {
+    console.error("[syncAuthUserImpl Error]", err);
+    return { success: false, error: err?.message || "Erro de sincronização de login." };
+  }
+}
+

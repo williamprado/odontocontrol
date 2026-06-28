@@ -15,6 +15,9 @@ Antes do deploy, prepare os valores das seguintes variáveis no ambiente ou no p
 | `SUPABASE_URL` | Endpoint da API do Supabase (Auth/Transição) | `https://example.supabase.co` |
 | `SUPABASE_PUBLISHABLE_KEY` | Chave anônima pública do Supabase | *Obtida no painel do Supabase* |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave privada administrativa do Supabase | *Usada apenas no backend do app* |
+| `BOOTSTRAP_ADMIN_EMAIL` | E-mail para criação do Super Admin inicial | `admin@admin.com` |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Senha temporária do Super Admin inicial | `@Admin.com` |
+
 
 ---
 
@@ -101,3 +104,21 @@ graph TD
 * [ ] **Autenticação:** Tente fazer login em um ambiente de homologação para verificar se o app consegue se conectar ao Supabase Auth.
 * [ ] **Conexão com o Banco Postgres:** Verifique os logs do container do app no Portainer para certificar-se de que ele conectou corretamente ao PostgreSQL (caso a integração Postgres esteja ativada).
 * [ ] **Políticas de Backup:** Certifique-se de configurar rotinas de backup para o volume persistente do banco Postgres no host do Swarm.
+
+---
+
+## 6. Inicialização e Bootstrap do Super Admin
+
+Para permitir o primeiro acesso do administrador ao painel do OdontoControl, a aplicação possui um script de bootstrap que roda automaticamente na inicialização do container.
+
+### Funcionamento do Bootstrap:
+1. O container inicia e executa o script `scripts/bootstrap-super-admin.mjs`.
+2. Se a variável `SUPABASE_SERVICE_ROLE_KEY` estiver configurada, o script se conectará ao Supabase Auth e criará automaticamente a conta `admin@admin.com` com a senha `@Admin.com` (ou os valores definidos nas variáveis `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`).
+3. Se a `SUPABASE_SERVICE_ROLE_KEY` **não** estiver presente, o script criará apenas as tabelas locais (Clínica padrão de bootstrap e perfil em `membro_equipe`). O usuário `admin@admin.com` precisará ser criado manualmente no console do Supabase Auth.
+4. O e-mail configurado será associado ao array de super-administradores na tabela `app_config.super_admin_emails`.
+5. No primeiro acesso válido do usuário, a Server Function do aplicativo (`syncAuthUser`) validará o JWT do Supabase, encontrará o e-mail cadastrado e vinculará de forma segura o `user_id` correspondente no banco local do PostgreSQL.
+
+> [!IMPORTANT]
+> **RECOMENDAÇÃO DE SEGURANÇA:**
+> Após o primeiro acesso ao sistema, remova as variáveis `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do painel do Portainer ou altere a senha diretamente nas configurações do usuário.
+

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { syncAuthUser } from "@/lib/query.server";
 
 export type Membro = {
   id: string;
@@ -51,11 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) {
       setMembro(null); setClinica(null); setIsSuperAdmin(false); return;
     }
-    const [{ data: m }, { data: cfg }] = await Promise.all([
-      supabase.from("membro_equipe").select("*").eq("user_id", uid).eq("ativo", true).limit(1).maybeSingle(),
+    const [syncRes, { data: cfg }] = await Promise.all([
+      syncAuthUser(),
       supabase.from("app_config").select("id,super_admin_emails").limit(1).maybeSingle(),
     ]);
+    const m = syncRes && syncRes.success ? syncRes.member : null;
     setMembro((m as Membro | null) ?? null);
+
     let admins: string[] = (cfg?.super_admin_emails as string[]) ?? [];
     // Auto-promove primeiro usuário a super admin
     if (email && cfg?.id && (!admins || admins.length === 0)) {

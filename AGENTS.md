@@ -69,3 +69,11 @@ docker compose -f deploy/portainer-stack.yml config
 * O script `scripts/build_and_push.sh` pode ser usado para compilar e publicar novas tags de forma incremental localmente.
 * **Não altere** ou acione builds manuais em ambientes de staging ou produção direta sem autorização.
 * A migração para PostgreSQL local com pgvector deve seguir o plano detalhado no [MIGRATION_SUPABASE_TO_PGVECTOR.md](file:///i:/odontocontrol/docs/MIGRATION_SUPABASE_TO_PGVECTOR.md), garantindo que as chamadas client-side do Supabase sejam reestruturadas em Server Functions antes de remover o SDK do Supabase.
+
+---
+
+## 6. Bootstrap do Super Admin
+* O script [scripts/bootstrap-super-admin.mjs](file:///i:/odontocontrol/scripts/bootstrap-super-admin.mjs) executa no startup do container para criar a clínica e o Super Admin local.
+* **Nunca** tente atualizar a coluna `user_id` de `membro_equipe` diretamente no client-side do React. Use a Server Function `syncAuthUser` de forma a validar as credenciais através da sessão JWT no servidor.
+* Mantenha o bootstrap idempotente e seguro (não logar senhas ou URLs do banco).
+

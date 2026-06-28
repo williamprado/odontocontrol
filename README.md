@@ -125,3 +125,14 @@ Atualmente, o projeto executa queries direto no cliente (frontend) usando o Supa
 > [!WARNING]
 > **Atenção com Chaves e Senhas:**
 > O arquivo `.env` nunca deve ser versionado no repositório Git. As credenciais expostas devem ser rotacionadas na nuvem antes do deploy em ambiente de produção oficial.
+
+---
+
+## 8. Primeiro Acesso / Bootstrap do Super Admin
+
+Para realizar o bootstrap da aplicação em produção ou desenvolvimento, as credenciais padrão do Super Admin inicial são:
+* **E-mail:** `admin@admin.com`
+* **Senha:** `@Admin.com`
+
+Estas variáveis podem ser alteradas/sobrescritas antes do primeiro deploy através de variáveis de ambiente (`BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`). Após o primeiro login, altere a senha para uma de sua preferência.
+
