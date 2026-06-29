@@ -147,7 +147,7 @@ CREATE TRIGGER trg_clinica_updated BEFORE UPDATE ON public.clinica
 CREATE TABLE IF NOT EXISTS public.membro_equipe (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   clinica_id uuid NOT NULL REFERENCES public.clinica(id) ON DELETE CASCADE,
-  user_id uuid,
+  user_id text,
   nome text NOT NULL,
   email text NOT NULL,
   role role_enum NOT NULL DEFAULT 'recepcionista',
