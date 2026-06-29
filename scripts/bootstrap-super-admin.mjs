@@ -67,8 +67,8 @@ async function bootstrap() {
 
     if (clinicaRes.rows.length === 0) {
       const insertClinica = await pool.query(
-        "INSERT INTO public.clinica (nome, slug, ativa) VALUES ($1, $2, $3) RETURNING id",
-        ["Clínica OdontoControl", "clinica-odontocontrol", true]
+        "INSERT INTO public.clinica (nome, slug, status) VALUES ($1, $2, $3) RETURNING id",
+        ["Clínica OdontoControl", "clinica-odontocontrol", "trial"]
       );
       clinicaId = insertClinica.rows[0].id;
       console.log("[bootstrap-admin] Clínica padrão de bootstrap criada no PostgreSQL.");
